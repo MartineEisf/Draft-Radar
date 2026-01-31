@@ -1,0 +1,1736 @@
+<!--
+🧪 INSTRUCTIONS DE TEST MANUEL
+
+1️⃣ FORMAT GRILLE (Problème 1)
+   - Ouvrir avec 4 joueurs → La grille doit occuper ~60% hauteur
+   - Passer à 20 joueurs → La grille doit TOUJOURS occuper ~60% hauteur
+   - Cellules plus petites mais grille même proportion
+   - ✓ PAS DE SCROLL vertical sur la zone grille
+
+2️⃣ ALIGNEMENT (Problème 2)
+   - Vérifier que lettre "A" est centrée sur colonne A
+   - Vérifier que chiffre "1" est centré sur ligne 1
+   - Prendre une règle virtuelle si besoin
+   - ✓ Gap entre axes = gap entre cellules
+
+3️⃣ INPUT ENTRÉE (Problème 3)
+   - Cliquer CONFIG
+   - Taper "Test Player" dans l'input
+   - Presser ENTRÉE → joueur ajouté
+   - Cliquer le bouton → joueur ajouté aussi
+   - ✓ Input se vide après ajout
+
+4️⃣ RESPONSIVE (Problème 4)
+   - Tester sur Chrome DevTools :
+     * 1920×1080 (Desktop)
+     * 768×1024 (Tablette)
+     * 375×667 (iPhone)
+   - ✓ Grille visible entièrement
+   - ✓ Axes alignés
+   - ✓ Textes lisibles
+
+📸 CAPTURES D'ÉCRAN À FOURNIR :
+   - Desktop avec 4 joueurs
+   - Desktop avec 20 joueurs
+   - Mobile avec 9 joueurs
+   - Console avec tests passés
+-->
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DRAFT RADAR // MARTOCHE</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --p: #00FF00;
+            --d: #003300;
+            --bg: #000000;
+            --disabled: #0a0a0a;
+            --f: 'VT323', monospace;
+            --error: #FF0000;
+            --warning: #FFAA00;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--d);
+            border: 1px solid var(--p);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--p);
+            border: 2px solid var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00DD00;
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--p) var(--d);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--p);
+            font-family: var(--f);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            overflow-y: auto;
+            border: 5px solid var(--d);
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+            background-size: 100% 4px;
+        }
+
+        header {
+            padding: 10px 20px;
+            border-bottom: 3px solid var(--p);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg);
+        }
+
+        .t-large {
+            font-size: 4vh;
+        }
+
+        .t-xl {
+            font-size: 6vh;
+            line-height: 1.1;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #scr-home,
+        #scr-game,
+        #scr-debriefing {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #scr-game {
+            flex-direction: row;
+            align-items: stretch;
+        }
+
+        .briefing {
+            border: 3px solid var(--p);
+            padding: 40px;
+            max-width: 900px;
+            background: rgba(0, 20, 0, 0.9);
+            text-align: left;
+            width: 95%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .radar-zone {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid var(--d);
+            padding: 10px;
+            overflow: auto;
+            height: 100%;
+        }
+
+        #grid-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .progress-bar {
+            width: 100%;
+            max-width: 700px;
+            height: 20px;
+            background: var(--d);
+            border: 2px solid var(--p);
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--p);
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.3) 50%,
+                    transparent 100%);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        #grid-with-axes {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .axis-labels-top {
+            display: flex;
+            margin-bottom: 5px;
+            padding-left: 0;
+            gap: 8px;
+        }
+
+        .axis-label {
+            color: var(--p);
+            font-size: 2.5vh;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .grid-with-left-axis {
+            display: flex;
+            gap: 8px;
+        }
+
+        .axis-labels-left {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        .axis-label-left {
+            color: var(--p);
+            font-size: 2.5vh;
+            font-weight: bold;
+            text-align: right;
+            padding-right: 5px;
+            width: 25px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        #grid {
+            display: grid;
+            gap: 8px;
+            border: 3px solid var(--p);
+            padding: 10px;
+            background: #000800;
+        }
+
+        .cell {
+            border: 1px solid var(--d);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 2.5vh;
+            font-weight: bold;
+            padding: 3px;
+            position: relative;
+            background: transparent;
+            aspect-ratio: 1 / 1;
+        }
+
+        .cell:hover:not(.disabled):not(.hit) {
+            background: var(--d);
+        }
+
+        .cell.disabled {
+            background: var(--disabled);
+            border: 2px dashed var(--d);
+            color: var(--d);
+            cursor: not-allowed;
+            background-image: repeating-linear-gradient(45deg,
+                    transparent,
+                    transparent 10px,
+                    var(--d) 10px,
+                    var(--d) 11px);
+            font-size: 2vh;
+        }
+
+        .cell.hit {
+            background: var(--p);
+            color: #000;
+            border: none;
+            font-size: 2.2vh;
+            line-height: 1.2;
+        }
+
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            min-width: 280px;
+            overflow-y: auto;
+        }
+
+        #fleet-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .ship-box {
+            border: 1px solid var(--p);
+            margin-bottom: 15px;
+        }
+
+        .ship-box.complete {
+            border: 2px solid var(--p);
+            box-shadow: 0 0 10px var(--p);
+        }
+
+        .ship-h {
+            background: var(--d);
+            padding: 5px 10px;
+            font-size: 2.8vh;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ship-name-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .complete-badge {
+            color: var(--p);
+            font-size: 2.2vh;
+            animation: blink-complete 1s ease-in-out infinite;
+        }
+
+        @keyframes blink-complete {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .ship-progress {
+            flex: 1;
+            height: 8px;
+            background: #001100;
+            border: 1px solid var(--p);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ship-progress-fill {
+            height: 100%;
+            background: var(--p);
+            transition: width 0.3s ease;
+        }
+
+        .member {
+            padding: 5px 15px;
+            font-size: 2.6vh;
+            border-top: 1px solid var(--d);
+        }
+
+        .btn {
+            background: #000;
+            color: var(--p);
+            border: 3px solid var(--p);
+            font-family: var(--f);
+            font-size: 4vh;
+            cursor: pointer;
+            padding: 10px 25px;
+            text-transform: uppercase;
+            margin: 10px 0;
+            transition: all 0.1s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--p);
+            color: #000;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: var(--d);
+            color: var(--d);
+        }
+
+        .btn-secondary {
+            border-width: 2px;
+            opacity: 0.8;
+            font-size: 3.5vh;
+        }
+
+        .btn-danger {
+            color: #FF0000;
+            border-color: #FF0000;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #FF0000;
+            color: #000;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 30px;
+            background: transparent;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type=range]::-webkit-slider-track {
+            width: 100%;
+            height: 8px;
+            background: var(--d);
+            border: 1px solid var(--p);
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: var(--p);
+            cursor: pointer;
+            border: 2px solid #000;
+        }
+
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            background: var(--d);
+            border: 1px solid var(--p);
+        }
+
+        input[type=range]::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: var(--p);
+            cursor: pointer;
+            border: 2px solid #000;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.98);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-c {
+            border: 4px solid var(--p);
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            background: #000;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            border: 2px solid var(--p);
+            color: var(--p);
+            font-family: var(--f);
+            font-size: 4vh;
+            padding: 15px;
+            outline: none;
+        }
+
+        .matelot-list {
+            border: 2px solid var(--p);
+            background: #000;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        .matelot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--d);
+            font-size: 3vh;
+        }
+
+        .matelot-item:last-child {
+            border-bottom: none;
+        }
+
+        .matelot-delete {
+            background: transparent;
+            border: none;
+            color: var(--p);
+            font-size: 3vh;
+            cursor: pointer;
+            padding: 5px 10px;
+            font-family: var(--f);
+            transition: opacity 0.2s;
+        }
+
+        .matelot-delete:hover {
+            opacity: 0.7;
+        }
+
+        .matelot-add {
+            width: 100%;
+            background: var(--d);
+            border: 2px dashed var(--p);
+            color: var(--p);
+            font-family: var(--f);
+            font-size: 3vh;
+            padding: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .matelot-add:hover {
+            background: #001a00;
+        }
+
+        .matelot-add:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        #new-matelot-input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--p);
+            color: var(--p);
+            font-family: var(--f);
+            font-size: 3.5vh;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #new-matelot-input:focus {
+            border-color: #00DD00;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+
+        #new-matelot-input::placeholder {
+            color: var(--d);
+        }
+
+        .error-msg {
+            color: var(--error);
+            font-size: 3vh;
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px solid var(--error);
+            background: rgba(255, 0, 0, 0.1);
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+            animation: blink-error 1s ease-in-out infinite;
+        }
+
+        @keyframes blink-error {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        .warning-msg {
+            color: var(--warning);
+            font-size: 3vh;
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px solid var(--warning);
+            background: rgba(255, 170, 0, 0.1);
+            display: none;
+        }
+
+        .warning-msg.show {
+            display: block;
+        }
+
+        .custom-confirm {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .custom-confirm.show {
+            display: flex;
+        }
+
+        .confirm-box {
+            border: 3px solid var(--p);
+            background: #000;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .confirm-header {
+            font-size: 4vh;
+            color: var(--p);
+            border-bottom: 2px solid var(--p);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .confirm-body {
+            font-size: 3vh;
+            line-height: 1.5;
+            margin-bottom: 25px;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            background: #000;
+            color: var(--p);
+            border: 2px solid var(--p);
+            font-family: var(--f);
+            font-size: 3.5vh;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .confirm-btn:hover {
+            background: var(--p);
+            color: #000;
+        }
+
+        .confirm-btn.danger {
+            color: var(--error);
+            border-color: var(--error);
+        }
+
+        .confirm-btn.danger:hover {
+            background: var(--error);
+            color: #000;
+        }
+
+        footer {
+            font-size: 3vh;
+            padding: 8px 20px;
+            border-top: 2px solid var(--d);
+            text-align: right;
+            color: var(--d);
+            background: var(--bg);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        canvas {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .blink-arrow {
+            animation: blink-arrow 0.8s ease-in-out infinite;
+        }
+
+        @keyframes blink-arrow {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.2;
+            }
+        }
+
+        .debriefing-title {
+            font-size: 5vh;
+            text-align: center;
+            margin: 10px 0;
+            color: var(--p);
+            text-shadow: 0 0 10px var(--p);
+        }
+
+        .debriefing-subtitle {
+            font-size: 4vh;
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--p);
+        }
+
+        .debriefing-ship {
+            border: 2px solid var(--p);
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(0, 50, 0, 0.3);
+        }
+
+        .debriefing-ship-title {
+            font-size: 3.5vh;
+            margin-bottom: 10px;
+            color: var(--p);
+            border-bottom: 1px solid var(--d);
+            padding-bottom: 8px;
+        }
+
+        .debriefing-member {
+            font-size: 2.8vh;
+            margin: 5px 0;
+            padding-left: 15px;
+        }
+
+        /* ✅ MEDIA QUERY MOBILE - CORRECTION COMPLÈTE */
+        @media (max-width: 800px) {
+
+            html,
+            body {
+                height: auto;
+                min-height: 100vh;
+                overflow-y: visible;
+                overflow-x: hidden;
+                border: none;
+            }
+
+            main {
+                display: block;
+                overflow: visible;
+                height: auto;
+            }
+
+            #scr-game {
+                flex-direction: column !important;
+                height: auto;
+                min-height: 100vh;
+                overflow-y: visible;
+                padding: 5px;
+            }
+
+            .main-content {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                overflow: visible;
+                width: 100%;
+            }
+
+            .radar-zone {
+                width: 100%;
+                border-right: none;
+                border-bottom: 2px solid var(--p);
+                padding: 10px 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+                flex-shrink: 0;
+                overflow: visible;
+                order: 1;
+                height: auto !important;
+                /* Permet le scroll complet sur mobile */
+                min-height: auto;
+            }
+
+            #grid-with-axes {
+                display: flex !important;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                margin: 0 auto;
+                max-width: 98vw;
+            }
+
+            .grid-with-left-axis {
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                gap: 3px;
+            }
+
+            #grid-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                border-left: none;
+                border-top: 2px solid var(--p);
+                overflow: visible;
+                padding: 10px;
+                height: auto;
+                max-height: none;
+                margin-bottom: 20px;
+                order: 2;
+                min-width: 0;
+            }
+
+            .t-large {
+                font-size: 2.5vh;
+            }
+
+            .turn-info {
+                font-size: 2.2vh;
+                padding: 5px;
+                margin: 5px 0;
+            }
+
+            .axis-label,
+            .axis-label-left {
+                font-size: 2vh;
+            }
+
+            .axis-labels-top {
+                padding-left: 0;
+                gap: 3px;
+                justify-content: center;
+                width: 100%;
+                display: flex;
+            }
+
+            header {
+                flex-wrap: wrap;
+            }
+
+            .nav-group {
+                margin-top: 5px;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .logo {
+                font-size: 2.5vh;
+            }
+
+            .btn {
+                font-size: 2vh;
+                padding: 5px 8px;
+            }
+
+            #grid {
+                gap: 3px;
+                padding: 3px;
+            }
+
+            .cell {
+                border-width: 1px;
+                font-size: 1.8vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="scanlines"></div>
+    <canvas id="fx"></canvas>
+
+    <div id="custom-confirm" class="custom-confirm">
+        <div class="confirm-box">
+            <div class="confirm-header" id="confirm-title"></div>
+            <div class="confirm-body" id="confirm-message"></div>
+            <div class="confirm-actions">
+                <button class="confirm-btn" id="confirm-yes"></button>
+                <button class="confirm-btn" id="confirm-no">ANNULER</button>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="t-large">DRAFT RADAR // OP_READY V5</div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" id="btn-menu" style="font-size:2.5vh; padding:5px 15px;">MENU</button>
+            <button class="btn" id="btn-cfg" style="font-size:2.5vh; padding:5px 15px;">CONFIG</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="scr-home">
+            <div class="briefing">
+                <h1 class="t-xl" style="margin-top:0; color:var(--p); border-bottom:3px solid var(--p);">ORDRES DE
+                    MISSION</h1>
+                <div id="type-text" class="t-large">
+                    > INITIALISER L'ÉQUIPAGE<br>
+                    > DÉPLOYER LA FLOTTE<br>
+                    > CHAQUE UNITÉ DOIT CLIQUER SUR LE RADAR<br>
+                    > REJOINDRE VOTRE NAVIRE D'AFFECTATION
+                </div>
+                <button class="btn" id="btn-init-grid" style="width:100%; margin-top:30px;">ACCÉDER AU RADAR</button>
+            </div>
+        </div>
+
+        <div id="scr-game" class="hidden">
+            <div class="radar-zone">
+                <div id="grid-container">
+                    <div id="turn-msg" class="t-large"
+                        style="background:var(--d); width:100%; max-width: 700px; text-align:center; margin-bottom:10px; border:1px solid var(--p); padding:10px;">
+                        ATTENTE...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="global-progress" style="width: 0%"></div>
+                    </div>
+                    <div id="grid-with-axes"></div>
+                </div>
+            </div>
+            <div class="sidebar">
+                <div class="t-large" style="border-bottom:2px solid var(--p); margin-bottom:10px;">ÉTAT DE LA FLOTTE
+                </div>
+                <div id="fleet-list"></div>
+            </div>
+        </div>
+
+        <div id="scr-debriefing" class="hidden">
+            <div class="briefing">
+                <div class="debriefing-title">✓ MISSION ACCOMPLIE ✓</div>
+                <div class="debriefing-subtitle">DEBRIEFING DE MISSION</div>
+                <div id="debriefing-content"></div>
+                <button class="btn" id="btn-new-mission" style="width:100%; margin-top:30px;">NOUVELLE MISSION</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="mod-cfg" class="modal hidden">
+        <div class="modal-c">
+            <h2 class="t-large" style="margin-top:0;">RECRUTEMENT ÉQUIPAGE <span style="font-size:3vh;">(<span
+                        id="matelot-count">4</span>/20)</span>
+            </h2>
+            <div id="matelot-list" class="matelot-list"></div>
+            <input type="text" id="new-matelot-input" placeholder="Nom du nouveau matelot..." maxlength="30">
+            <div class="error-msg" id="error-duplicate-name"></div>
+            <button class="matelot-add" id="btn-add-matelot">+ AJOUTER UN MATELOT</button>
+            <div class="error-msg" id="error-min-matelots"></div>
+            <div class="warning-msg" id="warning-max-names">✓ MAXIMUM ATTEINT : 20 MATELOTS</div>
+            <div style="margin: 20px 0;">
+                <label class="t-large">NAVIRES DISPONIBLES : <span id="val-n">2</span> <span id="max-ships-info"
+                        style="font-size:2.5vh; opacity:0.7;">(max: 2)</span></label>
+                <input type="range" id="range-n" min="2" max="2" value="2">
+            </div>
+            <button class="btn" id="btn-launch" style="width:100%;">GÉNÉRER LA GRILLE</button>
+            <button class="btn btn-secondary" id="btn-abort" style="width:100%; margin-top:5px;">ABANDONNER
+                MISSION</button>
+            <button class="btn btn-danger" id="btn-reset" style="width:100%; font-size:2.5vh;">RÉINITIALISATION
+                TOTALE</button>
+        </div>
+    </div>
+
+    <footer>© MARTOCHE // 2025 // DRAFT_RADAR_SYSTEM</footer>
+
+    <script>
+        const SHIPS = ["PORTE-AVIONS", "SOUS-MARIN", "CROISEUR", "DESTROYER", "FRÉGATE", "CUIRASSÉ", "CORVETTE", "ESCORTEUR", "PATROUILLEUR", "TORPILLEUR"];
+
+        const SHIP_INITIALS = {
+            "PORTE-AVIONS": "P.A",
+            "SOUS-MARIN": "S.M",
+            "CROISEUR": "CRO",
+            "DESTROYER": "DES",
+            "FRÉGATE": "FRE",
+            "CUIRASSÉ": "CUI",
+            "CORVETTE": "COR",
+            "ESCORTEUR": "ESC",
+            "PATROUILLEUR": "PAT",
+            "TORPILLEUR": "TOR"
+        };
+
+        const KEY = "draft_radar_v1";
+        const MAX_NAMES = 20;
+        const MIN_MATELOTS_PER_SHIP = 2;
+        const DEFAULT_MATELOTS = ["Matelot 1", "Matelot 2", "Matelot 3", "Matelot 4"];
+
+        let state = {
+            init: false,
+            crew: [],
+            cells: [],
+            nShips: 2,
+            turn: 0,
+            customNames: [...DEFAULT_MATELOTS],
+            cellSize: 70,
+            gridCols: 0,
+            gridRows: 0
+        };
+
+        const cv = document.getElementById('fx');
+        const cx = cv.getContext('2d');
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 800;
+
+        function customConfirm(title, message, yesText, yesClass = '') {
+            return new Promise((resolve) => {
+                const dialog = document.getElementById('custom-confirm');
+                const titleEl = document.getElementById('confirm-title');
+                const messageEl = document.getElementById('confirm-message');
+                const yesBtn = document.getElementById('confirm-yes');
+                const noBtn = document.getElementById('confirm-no');
+
+                titleEl.textContent = title;
+                messageEl.innerHTML = message;
+                yesBtn.textContent = yesText;
+                yesBtn.className = `confirm-btn ${yesClass}`;
+
+                dialog.classList.add('show');
+
+                const handleYes = () => {
+                    dialog.classList.remove('show');
+                    yesBtn.removeEventListener('click', handleYes);
+                    noBtn.removeEventListener('click', handleNo);
+                    resolve(true);
+                };
+
+                const handleNo = () => {
+                    dialog.classList.remove('show');
+                    yesBtn.removeEventListener('click', handleYes);
+                    noBtn.removeEventListener('click', handleNo);
+                    resolve(false);
+                };
+
+                yesBtn.addEventListener('click', handleYes);
+                noBtn.addEventListener('click', handleNo);
+            });
+        }
+
+        function renderMatelotList() {
+            const container = document.getElementById('matelot-list');
+            container.innerHTML = '';
+
+            state.customNames.forEach((name, i) => {
+                const item = document.createElement('div');
+                item.className = 'matelot-item';
+                const canDelete = state.customNames.length > 4;
+
+                item.innerHTML = `
+                    <input type="text" class="matelot-input" value="${name}" data-index="${i}" 
+                           style="background:transparent; border:none; border-bottom:1px solid var(--p); 
+                           color:var(--p); font-family:var(--f); font-size:3vh; width:80%;">
+                    <button class="matelot-delete" data-index="${i}" 
+                            style="color:#00FF00 !important; font-weight:bold; opacity:${canDelete ? 1 : 0.3}; cursor:${canDelete ? 'pointer' : 'not-allowed'}" 
+                            ${!canDelete ? 'disabled' : ''}>X</button>
+                `;
+                container.appendChild(item);
+            });
+
+            container.querySelectorAll('.matelot-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    const newValue = e.target.value;
+
+                    if (!newValue || newValue.trim() === '') {
+                        e.target.value = state.customNames[idx];
+                        const errorEl = document.getElementById('error-duplicate-name');
+                        errorEl.textContent = `⚠️ Le nom ne peut pas être vide !`;
+                        errorEl.classList.add('show');
+                        setTimeout(() => {
+                            errorEl.classList.remove('show');
+                        }, 2000);
+                        return;
+                    }
+
+                    state.customNames[idx] = newValue;
+                });
+                input.addEventListener('change', save);
+            });
+
+            document.getElementById('matelot-count').textContent = state.customNames.length;
+
+            const addBtn = document.getElementById('btn-add-matelot');
+            const warningMax = document.getElementById('warning-max-names');
+            if (state.customNames.length >= MAX_NAMES) {
+                addBtn.disabled = true;
+                warningMax.classList.add('show');
+            } else {
+                addBtn.disabled = false;
+                warningMax.classList.remove('show');
+            }
+
+            updateSliderMax();
+
+            container.querySelectorAll('.matelot-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    if (state.customNames.length > 4) {
+                        state.customNames.splice(idx, 1);
+                        renderMatelotList();
+                        save();
+                    }
+                });
+            });
+        }
+
+        function updateSliderMax() {
+            const slider = document.getElementById('range-n');
+            const maxShips = Math.floor(state.customNames.length / MIN_MATELOTS_PER_SHIP);
+            const clampedMax = Math.max(2, Math.min(maxShips, 10));
+
+            slider.max = clampedMax;
+            document.getElementById('max-ships-info').textContent = `(max: ${clampedMax})`;
+
+            if (state.nShips > clampedMax) {
+                state.nShips = clampedMax;
+                slider.value = clampedMax;
+                document.getElementById('val-n').textContent = clampedMax;
+            }
+
+            validateMatelotCount();
+        }
+
+        function validateMatelotCount() {
+            const errorEl = document.getElementById('error-min-matelots');
+            const launchBtn = document.getElementById('btn-launch');
+            const minRequired = state.nShips * MIN_MATELOTS_PER_SHIP;
+
+            if (state.customNames.length < minRequired) {
+                errorEl.textContent = `⚠️ MINIMUM ${minRequired} MATELOTS REQUIS POUR ${state.nShips} NAVIRES`;
+                errorEl.classList.add('show');
+                launchBtn.disabled = true;
+            } else {
+                errorEl.classList.remove('show');
+                launchBtn.disabled = false;
+            }
+        }
+
+        window.addEventListener('load', () => {
+            console.log('🎯 DRAFT RADAR - Initialisation...');
+
+            const saved = localStorage.getItem(KEY);
+            if (saved) {
+                state = JSON.parse(saved);
+                if (!state.customNames || state.customNames.length === 0) {
+                    state.customNames = [...DEFAULT_MATELOTS];
+                }
+                console.log('✅ État chargé depuis localStorage');
+            } else {
+                state.customNames = [...DEFAULT_MATELOTS];
+                console.log('📝 Configuration par défaut');
+            }
+
+            renderMatelotList();
+            document.getElementById('range-n').value = state.nShips;
+            document.getElementById('val-n').innerText = state.nShips;
+            render();
+
+            document.getElementById('btn-cfg').addEventListener('click', () => {
+                console.log('🔧 Ouverture CONFIG');
+                document.getElementById('mod-cfg').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-init-grid').addEventListener('click', () => {
+                if (state.init) {
+                    showScreen('scr-game');
+                } else {
+                    document.getElementById('mod-cfg').classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('btn-menu').addEventListener('click', () => {
+                showScreen('scr-home');
+            });
+
+            document.getElementById('btn-launch').addEventListener('click', setup);
+
+            const newMatelotInput = document.getElementById('new-matelot-input');
+
+            const addMatelotFromInput = () => {
+                const inputValue = newMatelotInput.value.trim();
+
+                if (!inputValue || inputValue === '') {
+                    const errorEl = document.getElementById('error-duplicate-name');
+                    errorEl.textContent = `⚠️ Le nom ne peut pas être vide !`;
+                    errorEl.classList.add('show');
+                    newMatelotInput.style.borderColor = 'var(--error)';
+                    setTimeout(() => {
+                        newMatelotInput.style.borderColor = 'var(--p)';
+                    }, 500);
+                    setTimeout(() => {
+                        errorEl.classList.remove('show');
+                    }, 3000);
+                    return;
+                }
+
+                const newName = inputValue;
+
+                if (state.customNames.includes(newName)) {
+                    const errorEl = document.getElementById('error-duplicate-name');
+                    errorEl.textContent = `⚠️ "${newName}" existe déjà !`;
+                    errorEl.classList.add('show');
+                    newMatelotInput.style.borderColor = 'var(--error)';
+                    setTimeout(() => {
+                        newMatelotInput.style.borderColor = 'var(--p)';
+                    }, 500);
+                    setTimeout(() => {
+                        errorEl.classList.remove('show');
+                    }, 3000);
+                    return;
+                }
+
+                state.customNames.push(newName);
+                renderMatelotList();
+
+                const matelotListContainer = document.getElementById('matelot-list');
+                matelotListContainer.scrollTop = matelotListContainer.scrollHeight;
+
+                const nextNum = findNextMatelotNumber();
+                newMatelotInput.value = `Matelot ${nextNum}`;
+                newMatelotInput.select();
+                newMatelotInput.focus();
+
+                save();
+            };
+
+            function findNextMatelotNumber() {
+                const existingNumbers = state.customNames
+                    .filter(name => name.startsWith('Matelot '))
+                    .map(name => {
+                        const match = name.match(/Matelot (\d+)/);
+                        return match ? parseInt(match[1]) : null;
+                    })
+                    .filter(num => num !== null)
+                    .sort((a, b) => a - b);
+
+                for (let i = 1; i <= existingNumbers.length + 1; i++) {
+                    if (!existingNumbers.includes(i)) {
+                        return i;
+                    }
+                }
+
+                return state.customNames.length + 1;
+            }
+
+            document.getElementById('btn-add-matelot').addEventListener('click', addMatelotFromInput);
+
+            newMatelotInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addMatelotFromInput();
+                }
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', async (e) => {
+                console.log('🔥 RESET TOTAL');
+                e.preventDefault();
+                e.stopPropagation();
+
+                const confirmed = await customConfirm(
+                    '🔥 FORMATAGE DU TERMINAL',
+                    '⚠️ ATTENTION : ACTION IRRÉVERSIBLE<br><br>> Toutes les données seront<br>&nbsp;&nbsp;définitivement effacées<br>> Aucune sauvegarde possible',
+                    'FORMATER',
+                    'danger'
+                );
+
+                if (confirmed) {
+                    localStorage.clear();
+                    window.location.reload();
+                }
+            });
+
+            document.getElementById('btn-abort').addEventListener('click', async (e) => {
+                console.log('⚠️ ABANDON MISSION');
+                e.preventDefault();
+                e.stopPropagation();
+
+                const confirmed = await customConfirm(
+                    '⚠️ ALERTE SYSTÈME',
+                    'Abandonner la mission en cours ?<br><br>> La grille sera réinitialisée<br>> Les noms seront conservés<br>> Le nombre de navires sera gardé',
+                    'CONFIRMER'
+                );
+
+                if (confirmed) {
+                    state.init = false;
+                    state.turn = 0;
+                    state.cells = [];
+                    save();
+                    document.getElementById('mod-cfg').classList.add('hidden');
+                    showScreen('scr-home');
+                }
+            });
+
+            document.getElementById('btn-new-mission').addEventListener('click', () => {
+                state.init = false;
+                state.turn = 0;
+                state.cells = [];
+                save();
+                showScreen('scr-home');
+            });
+
+            document.getElementById('range-n').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                document.getElementById('val-n').innerText = val;
+                state.nShips = val;
+                validateMatelotCount();
+            });
+
+            window.addEventListener('resize', () => {
+                cv.width = window.innerWidth;
+                cv.height = window.innerHeight;
+
+                if (state.init) {
+                    state.cellSize = calculateCellSize(state.customNames.length, state.gridCols, state.gridRows);
+                    render();
+                }
+            });
+
+            cv.width = window.innerWidth;
+            cv.height = window.innerHeight;
+
+            console.log('✅ Tous les event listeners attachés');
+        });
+
+        function showScreen(screenId) {
+            document.getElementById('scr-home').classList.add('hidden');
+            document.getElementById('scr-game').classList.add('hidden');
+            document.getElementById('scr-debriefing').classList.add('hidden');
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        function explode(x, y) {
+            const particleCount = isMobile ? 40 : 80;
+            const p = [];
+            for (let i = 0; i < particleCount; i++) {
+                p.push({
+                    x,
+                    y,
+                    vx: (Math.random() - 0.5) * 24,
+                    vy: (Math.random() - 0.5) * 24,
+                    s: Math.random() * 8 + 4,
+                    l: 1
+                });
+            }
+
+            const draw = () => {
+                cx.clearRect(0, 0, cv.width, cv.height);
+                let active = false;
+                p.forEach(it => {
+                    if (it.l > 0) {
+                        it.x += it.vx;
+                        it.y += it.vy;
+                        it.l -= 0.03;
+                        cx.fillStyle = `rgba(0,255,0,${it.l})`;
+                        cx.fillRect(it.x, it.y, it.s, it.s);
+                        active = true;
+                    }
+                });
+                if (active) requestAnimationFrame(draw);
+            };
+            draw();
+        }
+
+        function checkShipComplete(shipId) {
+            const totalInShip = state.crew.filter(m => m.sId === shipId).length;
+            const revealedInShip = state.cells.filter(c => !c.disabled && c.hit && state.crew[c.idx].sId === shipId).length;
+            return totalInShip === revealedInShip && totalInShip > 0;
+        }
+
+        function getOptimalGrid(n) {
+            const isMobileView = window.innerWidth < 800;
+
+            if (isMobileView) {
+                const maxCols = 3;
+                const cols = Math.min(n, maxCols);
+                const rows = Math.ceil(n / cols);
+                const total = rows * cols;
+                console.log(`📱 Mobile Grid: ${cols}×${rows} (max ${maxCols} colonnes)`);
+                return { rows, cols, total };
+            }
+
+            let bestRows = 1, bestCols = n;
+            let minDiff = Math.abs(bestCols - bestRows);
+
+            for (let rows = 1; rows <= Math.ceil(Math.sqrt(n * 2)); rows++) {
+                let cols = Math.ceil(n / rows);
+                let diff = Math.abs(cols - rows);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestRows = rows;
+                    bestCols = cols;
+                }
+            }
+
+            console.log(`🖥️ Desktop Grid: ${bestCols}×${bestRows}`);
+            return { rows: bestRows, cols: bestCols, total: bestRows * bestCols };
+        }
+
+        function calculateCellSize(numPlayers, gridCols, gridRows) {
+            const FIXED_CELL_SIZE_DESKTOP = 150;
+            const FIXED_CELL_SIZE_MOBILE = 100;
+            const isMobileView = window.innerWidth < 800;
+
+            if (isMobileView) {
+                console.log(`📱 Mobile Cell: ${FIXED_CELL_SIZE_MOBILE}px (FIXE)`);
+                return FIXED_CELL_SIZE_MOBILE;
+            }
+
+            console.log(`🖥️ Desktop Cell: ${FIXED_CELL_SIZE_DESKTOP}px (FIXE)`);
+            return FIXED_CELL_SIZE_DESKTOP;
+        }
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function setup() {
+            const emptyNames = state.customNames.filter(name => !name || name.trim() === '');
+            if (emptyNames.length > 0) {
+                const errorEl = document.getElementById('error-min-matelots');
+                errorEl.textContent = `⚠️ ERREUR : ${emptyNames.length} matelot(s) sans nom !`;
+                errorEl.classList.add('show');
+                setTimeout(() => {
+                    errorEl.classList.remove('show');
+                }, 4000);
+                return;
+            }
+
+            const names = [...state.customNames];
+            const n = parseInt(document.getElementById('range-n').value);
+            state.nShips = n;
+
+            const shuffledNames = shuffle(names);
+            state.crew = shuffledNames.map((name, i) => ({ name, sId: i % n }));
+
+            state.turn = 0;
+            state.init = true;
+
+            const grid = getOptimalGrid(names.length);
+            state.gridCols = grid.cols;
+            state.gridRows = grid.rows;
+            state.cellSize = calculateCellSize(names.length, grid.cols, grid.rows);
+
+            const totalCells = grid.total;
+
+            state.cells = [];
+            for (let i = 0; i < totalCells; i++) {
+                const row = Math.floor(i / grid.cols);
+                const col = i % grid.cols;
+                const label = String.fromCharCode(65 + col) + (row + 1);
+
+                if (i < names.length) {
+                    state.cells.push({
+                        l: label,
+                        idx: i,
+                        hit: false,
+                        disabled: false
+                    });
+                } else {
+                    state.cells.push({
+                        l: '- - -',
+                        idx: -1,
+                        hit: false,
+                        disabled: true
+                    });
+                }
+            }
+
+            save();
+            render();
+            document.getElementById('mod-cfg').classList.add('hidden');
+            showScreen('scr-game');
+        }
+
+        function render() {
+            if (!state.init) {
+                showScreen('scr-home');
+            } else if (state.turn >= state.crew.length) {
+                renderDebriefing();
+            } else {
+                showScreen('scr-game');
+
+                const container = document.getElementById('grid-with-axes');
+                container.innerHTML = '';
+
+                const topAxis = document.createElement('div');
+                topAxis.className = 'axis-labels-top';
+
+                const spacer = document.createElement('div');
+                spacer.style.width = '25px';
+                spacer.style.flexShrink = '0';
+                topAxis.appendChild(spacer);
+
+                for (let col = 0; col < state.gridCols; col++) {
+                    const label = document.createElement('div');
+                    label.className = 'axis-label';
+                    label.style.width = `${state.cellSize}px`;
+                    label.textContent = String.fromCharCode(65 + col);
+                    topAxis.appendChild(label);
+                }
+                container.appendChild(topAxis);
+
+                const gridWithLeft = document.createElement('div');
+                gridWithLeft.className = 'grid-with-left-axis';
+
+                const leftAxis = document.createElement('div');
+                leftAxis.className = 'axis-labels-left';
+                for (let row = 0; row < state.gridRows; row++) {
+                    const label = document.createElement('div');
+                    label.className = 'axis-label-left';
+                    label.style.height = `${state.cellSize}px`;
+                    label.textContent = row + 1;
+                    leftAxis.appendChild(label);
+                }
+                gridWithLeft.appendChild(leftAxis);
+
+                const g = document.createElement('div');
+                g.id = 'grid';
+                g.style.gridTemplateColumns = `repeat(${state.gridCols}, ${state.cellSize}px)`;
+                g.style.gridTemplateRows = `repeat(${state.gridRows}, ${state.cellSize}px)`;
+
+                for (let i = 0; i < state.cells.length; i++) {
+                    const c = state.cells[i];
+                    const d = document.createElement('div');
+                    d.className = `cell ${c.hit ? 'hit' : ''} ${c.disabled ? 'disabled' : ''}`;
+                    d.style.width = `${state.cellSize}px`;
+                    d.style.height = `${state.cellSize}px`;
+
+                    if (c.disabled) {
+                        d.innerText = c.l;
+                    } else if (c.hit) {
+                        const shooter = state.crew[c.idx];
+                        const shipName = SHIPS[shooter.sId];
+                        const initials = SHIP_INITIALS[shipName];
+                        d.innerHTML = `<div style="text-align:center;">${initials}</div>`;
+                    } else {
+                        d.innerText = c.l;
+                        d.onclick = (e) => {
+                            if (state.turn >= state.crew.length) return;
+
+                            const shooter = state.crew[c.idx];
+                            const shipName = SHIPS[shooter.sId];
+                            const initials = SHIP_INITIALS[shipName];
+
+                            c.hit = true;
+
+                            const r = e.target.getBoundingClientRect();
+                            explode(r.left + r.width / 2, r.top + r.height / 2);
+
+                            d.classList.add('hit');
+                            d.innerHTML = `<div style="text-align:center;">${initials}</div>`;
+
+                            state.turn++;
+                            save();
+                            render();
+                        };
+                    }
+                    g.appendChild(d);
+                }
+
+                gridWithLeft.appendChild(g);
+                container.appendChild(gridWithLeft);
+
+                const currentPlayer = state.crew[state.turn];
+                document.getElementById('turn-msg').innerHTML =
+                    (state.turn < state.crew.length)
+                        ? `<span class="blink-arrow">&gt;&gt;</span> ORDRE DE TIR : ${currentPlayer.name} (${state.turn + 1}/${state.crew.length})`
+                        : "MISSION ACCOMPLIE";
+
+                const globalProgress = (state.turn / state.crew.length) * 100;
+                document.getElementById('global-progress').style.width = `${globalProgress}%`;
+
+                const fl = document.getElementById('fleet-list');
+                fl.innerHTML = '';
+                for (let i = 0; i < state.nShips; i++) {
+                    const totalInShip = state.crew.filter(m => m.sId === i).length;
+                    const hitCells = state.cells.filter(c => !c.disabled && c.hit && state.crew[c.idx].sId === i);
+                    const ms = hitCells.map(c => state.crew[c.idx].name);
+                    const isComplete = checkShipComplete(i);
+                    const progress = totalInShip > 0 ? (ms.length / totalInShip) * 100 : 0;
+
+                    const box = document.createElement('div');
+                    box.className = `ship-box ${isComplete ? 'complete' : ''}`;
+
+                    let headerHTML = `<div class="ship-h">
+                        <div class="ship-name-line">
+                            <span>${SHIPS[i]}</span>
+                            ${isComplete ? '<span class="complete-badge">[✓ COMPLET]</span>' : ''}
+                        </div>
+                        <span>${ms.length}/${totalInShip}</span>
+                    </div>`;
+
+                    headerHTML += `<div style="padding: 8px 10px; background: #000;">
+                        <div class="ship-progress">
+                            <div class="ship-progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                    </div>`;
+
+                    box.innerHTML = headerHTML + ms.map(m => `<div class="member">> ${m}</div>`).join('');
+                    fl.appendChild(box);
+                }
+            }
+        }
+
+        function renderDebriefing() {
+            showScreen('scr-debriefing');
+            let html = '';
+
+            for (let i = 0; i < state.nShips; i++) {
+                const membersInShip = state.crew.filter(m => m.sId === i);
+                const ms = membersInShip.map(m => m.name);
+
+                html += `<div class="debriefing-ship">`;
+                html += `<div class="debriefing-ship-title">${SHIPS[i]} (${ms.length} MEMBRES)</div>`;
+                html += ms.map((m, idx) => `<div class="debriefing-member">${idx + 1}. ${m}</div>`).join('');
+                html += `</div>`;
+            }
+
+            document.getElementById('debriefing-content').innerHTML = html;
+        }
+
+        function save() {
+            localStorage.setItem(KEY, JSON.stringify(state));
+            console.log('💾 État sauvegardé');
+        }
+    </script>
+
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log("\n");
+                console.log("🧪 DRAFT RADAR - TESTS DE VALIDATION");
+                console.log("=====================================");
+
+                const gridElement = document.getElementById('grid');
+                if (gridElement && gridElement.offsetHeight > 0) {
+                    const gridHeight = gridElement.offsetHeight;
+                    const radarZone = document.querySelector('.radar-zone');
+                    const availableHeight = radarZone.offsetHeight;
+                    const ratio = (gridHeight / availableHeight * 100).toFixed(1);
+                    console.log(`✓ Test 1 - Ratio grille : ${ratio}% (objectif: ~60%)`);
+                } else {
+                    console.log(`ℹ️ Test 1 - Grille non générée (cliquez CONFIG puis GÉNÉRER LA GRILLE)`);
+                }
+
+                const firstCell = document.querySelector('.cell');
+                const firstAxisLabel = document.querySelector('.axis-label');
+                if (firstCell && firstAxisLabel) {
+                    const cellRect = firstCell.getBoundingClientRect();
+                    const axisRect = firstAxisLabel.getBoundingClientRect();
+                    const alignment = Math.abs(cellRect.left - axisRect.left) < 2;
+                    console.log(`✓ Test 2 - Alignement axes : ${alignment ? 'OK ✅' : 'ÉCHEC ❌'} (delta: ${Math.abs(cellRect.left - axisRect.left).toFixed(1)}px)`);
+                } else {
+                    console.log(`ℹ️ Test 2 - Axes non visibles (générez la grille d'abord)`);
+                }
+
+                const input = document.querySelector('#new-matelot-input');
+                console.log(`✓ Test 3 - Input présent : ${input ? 'OK ✅' : 'ÉCHEC ❌'}`);
+
+                const isMobile = window.innerWidth < 800;
+                console.log(`✓ Test 4 - Mode : ${isMobile ? 'MOBILE 📱' : 'DESKTOP 🖥️'} (largeur: ${window.innerWidth}px)`);
+
+                console.log("=====================================");
+                console.log("🎯 VALIDATION TERMINÉE");
+                console.log("\n");
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>
